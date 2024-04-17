@@ -15,5 +15,7 @@ public class JwtAuthenticationFilter extends GenericFilterBean {
     @Override
     public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
         HttpRequest httpRequest = (HttpRequest) servletRequest;
+
+        filterChain.doFilter(servletRequest, servletResponse);
     }
 }
