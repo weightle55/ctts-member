@@ -3,27 +3,32 @@ package com.ctts.member.authority;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
-import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
-public class JwtTokenProvider {
+public class JwtTokenProvider implements InitializingBean {
     private static final String AUTHORITIES_KEY = "authorization";
     private static final String BEARER_TYPE = "Bearer";
     private static final Long ACCESS_TOKEN_EXPIRATION_TIME = 30 * 60 * 1000L; //30분
     private static final Long REFRESH_TOKEN_EXPIRATION_TIME = 3 * 60 * 60 * 1000L; //3시간
 
+    private Key key;
+
     @Value("${jwt.secret}")
     private String secret;
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+    }
 
     /**
      * 토큰 생성
@@ -39,14 +44,14 @@ public class JwtTokenProvider {
                 .setSubject(authentication.getName())
                 .claim("authorization", authorities)
                 .setExpiration(expiredAccessToken)
-                .signWith(getKey(), SignatureAlgorithm.HS512)
+                .signWith(this.key, SignatureAlgorithm.HS512)
                 .compact();
 
         //refreshToken 생성
         Date refreshTokenExpiration = new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRATION_TIME);
         String refreshToken = Jwts.builder()
                 .setExpiration(refreshTokenExpiration)
-                .signWith(getKey(), SignatureAlgorithm.HS512)
+                .signWith(this.key, SignatureAlgorithm.HS512)
                 .compact();
 
         return TokenInfo.of(BEARER_TYPE, accessToken, refreshToken);
@@ -71,7 +76,7 @@ public class JwtTokenProvider {
      */
     public Boolean validateToken(String accessToken) {
         try {
-            Jwts.parserBuilder().setSigningKey(getKey()).build().parseClaimsJws(accessToken);
+            Jwts.parserBuilder().setSigningKey(this.key).build().parseClaimsJws(accessToken);
             return true;
         } catch (SecurityException e) {
             return false;
@@ -87,19 +92,11 @@ public class JwtTokenProvider {
     }
 
     /**
-     * key 디코딩
-     * @return
-     */
-    private Key getKey() {
-        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(this.secret));
-    }
-
-    /**
      * claim parse
      */
     public Claims parseClaims(String accessToken) {
         try {
-            return Jwts.parserBuilder().setSigningKey(getKey()).build().parseClaimsJws(accessToken).getBody();
+            return Jwts.parserBuilder().setSigningKey(this.key).build().parseClaimsJws(accessToken).getBody();
         } catch (ExpiredJwtException e) {
             return e.getClaims();
         }
