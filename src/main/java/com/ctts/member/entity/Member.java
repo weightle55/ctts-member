@@ -3,7 +3,7 @@ package com.ctts.member.entity;
 import jakarta.persistence.*;
 
 @Entity
-public class User {
+public class Member {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
